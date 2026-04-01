@@ -1,0 +1,5 @@
+{
+  "name": "Route Master",
+  "description": "A hyper-personalized road trip planner that designs safe, efficient, and serendipitous journeys using real-time data and vehicle intelligence.",
+  "requestFramePermissions": ["geolocation", "microphone"]
+}

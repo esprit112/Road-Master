@@ -1,0 +1,73 @@
+@import "tailwindcss";
+
+@theme {
+  --color-cobalt: #1A237E;
+  --color-charcoal: #263238;
+  --color-electric: #2979FF;
+  --color-glass-bg: rgba(255, 255, 255, 0.95);
+  
+  --color-primary: var(--color-cobalt);
+  --color-active: var(--color-electric);
+  --color-accent: #D50000;
+  --color-surface: #F8FAFC;
+  --color-text-main: var(--color-charcoal);
+  
+  /* Persona Accents */
+  --color-explorer: #00C853;
+  --color-voyager: #FFD600;
+  --color-nomad: #E040FB;
+
+  /* Dark Mode Overrides */
+  --color-surface-dark: #0F172A;
+  --color-text-main-dark: #F8FAFC;
+}
+
+@layer base {
+  :root {
+    --primary: var(--color-primary);
+    --active: var(--color-active);
+    --accent: var(--color-accent);
+    --surface: var(--color-surface);
+    --text-main: var(--color-text-main);
+  }
+
+  .dark {
+    --surface: var(--color-surface-dark);
+    --text-main: var(--color-text-main-dark);
+  }
+
+  body {
+    @apply bg-[var(--surface)] text-[var(--text-main)] transition-colors duration-300;
+  }
+
+  .prose h1 { @apply text-3xl font-bold mb-4 mt-8 text-[var(--primary)]; }
+  .prose h2 { @apply text-2xl font-bold mb-3 mt-6 text-[var(--primary)]; }
+  .prose h3 { @apply text-xl font-bold mb-2 mt-4 text-[var(--primary)]; }
+  .prose p { @apply mb-4 leading-relaxed; }
+  .prose ul { @apply list-disc pl-6 mb-4; }
+  .prose ol { @apply list-decimal pl-6 mb-4; }
+  .prose li { @apply mb-1; }
+  .prose a { @apply text-[var(--active)] underline hover:no-underline; }
+  .prose blockquote { @apply border-l-4 border-[var(--active)]/20 pl-4 italic mb-4; }
+  .prose strong { @apply font-bold text-[var(--active)]; }
+}
+
+@utility rm-card {
+  @apply bg-white dark:bg-slate-900 backdrop-blur-2xl border border-slate-200/60 dark:border-slate-800/60 rounded-3xl shadow-xl;
+}
+
+@utility rm-btn {
+  @apply transition-all duration-200 active:scale-95 rounded-2xl font-bold;
+}
+
+@utility rm-btn-primary {
+  @apply transition-all duration-200 active:scale-95 rounded-2xl font-bold bg-[var(--primary)] text-white hover:bg-[var(--active)] shadow-lg shadow-[var(--primary)]/20;
+}
+
+@utility rm-btn-accent {
+  @apply transition-all duration-200 active:scale-95 rounded-2xl font-bold bg-[var(--accent)] text-white hover:bg-red-700 shadow-lg shadow-[var(--accent)]/20;
+}
+
+@utility rm-gradient-text {
+  @apply bg-gradient-to-br from-[var(--primary)] to-[var(--active)] bg-clip-text text-transparent;
+}

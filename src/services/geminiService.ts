@@ -1,5 +1,5 @@
 import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
-import { TripInputs, RoadTripResponse, UserProfile } from "../types";
+import { TripInputs, RoadTripResponse, UserProfile, OvernightPitstop } from "../types";
 import { withRetry } from "../lib/apiUtils";
 
 const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
@@ -413,4 +413,80 @@ export async function calculateDirectDistance(start: string, end: string, days: 
 
 export async function getLocationSuggestions(_query: string): Promise<string[]> {
   return [];
+}
+
+export async function fetchDynamicOvernightStays(
+  location: string | { lat: number; lng: number },
+  vehicleType: string,
+  vibe: string
+): Promise<OvernightPitstop[]> {
+  const model = "gemini-3-flash-preview";
+  const locationString = typeof location === 'string' 
+    ? location 
+    : `Latitude ${location.lat}, Longitude ${location.lng}`;
+
+  const prompt = `
+    You are the "ROUTE MASTER ARCHITECT," a high-intelligence travel agent.
+    Find 5 Overnight Stay options (Hotel/Campsite/B&B) near this location: ${locationString}.
+    Tailor the options for a vehicle type: ${vehicleType} and vibe: ${vibe}.
+    
+    DATA REQUIREMENTS:
+    For every result, you MUST return:
+    - name: String
+    - type: 'Hotel' | 'Campsite' | 'B&B' | 'Wild Camping'
+    - description: String
+    - photo_uri: String (placeholder)
+    - phone: String
+    - website: String
+    - price_category: String (e.g., "$$", "£££")
+    - persona_fit: String (Why it fits the vibe)
+    - image_source: 'website' | 'generic'
+    
+    OUTPUT FORMAT:
+    Return a JSON object with an "overnight_pitstop" array containing these objects.
+  `;
+
+  const response = await withRetry(() => ai.models.generateContent({
+    model,
+    contents: prompt,
+    config: {
+      tools: [{ googleSearch: {} }],
+      toolConfig: {
+        includeServerSideToolInvocations: true,
+      },
+      responseMimeType: "application/json",
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          overnight_pitstop: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING },
+                type: { type: Type.STRING },
+                description: { type: Type.STRING },
+                photo_uri: { type: Type.STRING },
+                phone: { type: Type.STRING },
+                website: { type: Type.STRING },
+                price_category: { type: Type.STRING },
+                persona_fit: { type: Type.STRING },
+                image_source: { type: Type.STRING },
+              },
+              required: ["name", "type", "description", "photo_uri", "phone", "website", "price_category", "persona_fit", "image_source"],
+            },
+          },
+        },
+        required: ["overnight_pitstop"],
+      },
+    },
+  }));
+
+  try {
+    const result = JSON.parse(response.text || '{"overnight_pitstop": []}');
+    return result.overnight_pitstop || [];
+  } catch (e) {
+    console.error("Failed to parse overnight stays", e);
+    return [];
+  }
 }

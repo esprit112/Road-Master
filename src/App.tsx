@@ -56,7 +56,7 @@ import {
 } from 'lucide-react';
 import Markdown from 'react-markdown';
 import { motion, AnimatePresence } from 'motion/react';
-import { generateRoadTrip, calculateDirectDistance } from './services/geminiService';
+import { generateRoadTrip, calculateDirectDistance, fetchDynamicOvernightStays } from './services/geminiService';
 import { searchEmergencyServices, detectRegion, getRoadLawSummary } from './services/emergencyService';
 import { TripInputs, VehicleType, VehicleProfile, SerendipityLevel, GroundingChunk, Persona, RoadTripResponse, OvernightPitstop, EmergencyCategory, EmergencyResult, Region, RoadLawSummary, UserProfile, UserAddedPitstop, SavedRoute, SocialShare } from './types';
 import { cn } from './lib/utils';
@@ -362,7 +362,20 @@ export default function App() {
   const [contextualMessage, setContextualMessage] = useState('');
   const [roadTrip, setRoadTrip] = useState<RoadTripResponse | null>(null);
   const [selectedDay, setSelectedDay] = useState<number>(1);
+  const [dynamicOvernightStays, setDynamicOvernightStays] = useState<OvernightPitstop[]>([]);
+  const [isFetchingOvernightStays, setIsFetchingOvernightStays] = useState(false);
   const [selectedLodging, setSelectedLodging] = useState<OvernightPitstop | null>(null);
+
+  const getEndOfDayLocation = (dayIndex: number): { location: { lat: number; lng: number } | string, name: string } | null => {
+    if (!roadTrip || !roadTrip.itinerary_daily) return null;
+    const dayData = roadTrip.itinerary_daily.find(d => d.day === dayIndex);
+    if (!dayData || !dayData.stops || dayData.stops.length === 0) return null;
+    const lastStop = dayData.stops[dayData.stops.length - 1];
+    if (lastStop.coordinates) {
+      return { location: lastStop.coordinates, name: lastStop.name };
+    }
+    return { location: lastStop.location, name: lastStop.name };
+  };
   const [calculatedDistance, setCalculatedDistance] = useState<string | null>(null);
   const [emergencyResults, setEmergencyResults] = useState<EmergencyResult[]>([]);
   const [selectedEmergencyCategory, setSelectedEmergencyCategory] = useState<EmergencyCategory | null>(null);
@@ -545,8 +558,41 @@ export default function App() {
     setSelectedLodging(null);
   };
 
+  useEffect(() => {
+    const fetchStays = async () => {
+      if (!roadTrip || mode !== 'planner') return;
+      const endLocationData = getEndOfDayLocation(selectedDay);
+      if (!endLocationData) return;
+      
+      setIsFetchingOvernightStays(true);
+      try {
+        const stays = await fetchDynamicOvernightStays(
+          endLocationData.location, 
+          activeProfile?.vehicle.type || 'Car', 
+          activeProfile?.persona || 'The Solo Nomad'
+        );
+        setDynamicOvernightStays(stays);
+      } catch (error) {
+        console.error("Failed to fetch dynamic overnight stays", error);
+      } finally {
+        setIsFetchingOvernightStays(false);
+      }
+    };
+
+    fetchStays();
+  }, [selectedDay, roadTrip, mode, activeProfile]);
+
   const handleEmergencySearch = async (category: EmergencyCategory) => {
-    if (!userLocation) {
+    let searchOrigin: { lat: number; lng: number } | string | null = userLocation;
+    
+    if (category === 'Emergency Stay' && roadTrip) {
+      const endLocationData = getEndOfDayLocation(selectedDay);
+      if (endLocationData) {
+        searchOrigin = endLocationData.location;
+      }
+    }
+
+    if (!searchOrigin) {
       alert("Please enable location services to use Emergency Support.");
       return;
     }
@@ -555,7 +601,7 @@ export default function App() {
     setEmergencyResults([]);
     setLoadingMessage(`Searching for ${category} services nearby...`);
     try {
-      const response = await searchEmergencyServices(category, userLocation, region);
+      const response = await searchEmergencyServices(category, searchOrigin, region);
       setEmergencyResults(response.results);
     } catch (error) {
       console.error(error);
@@ -953,7 +999,7 @@ export default function App() {
           </header>
 
           <main className="relative z-10 min-h-screen flex flex-col pt-48 pb-32 overflow-y-auto">
-            <div className="px-4 w-full max-w-4xl mx-auto flex-1">
+            <div className="px-2 md:px-4 w-[98%] md:w-full max-w-4xl mx-auto flex-1">
               <div className="flex items-center justify-between mb-8">
                 <div className="flex flex-col">
                   <h1 className="text-4xl font-black tracking-tighter text-white drop-shadow-lg">
@@ -1011,7 +1057,7 @@ export default function App() {
                                 <ShieldAlert className="w-6 h-6 text-amber-600" />
                                 <h3 className="text-lg font-black text-amber-900 uppercase tracking-tight">Safety Briefing</h3>
                               </div>
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                              <div className="flex flex-col gap-6">
                                 <div className="space-y-3">
                                   <p className="text-[10px] font-black text-amber-700 uppercase tracking-widest">Local Road Laws ({roadTrip.safety_briefing.legal_scout.country})</p>
                                   <ul className="space-y-1">
@@ -1098,65 +1144,63 @@ export default function App() {
                                   </p>
                                 </motion.div>
                               )}
-                              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-                                <div className="flex items-center gap-4">
-                                  <div className="p-4 rounded-3xl bg-indigo-50 shadow-inner">
-                                    <Sparkles className="w-8 h-8 text-[#1A237E]" />
-                                  </div>
-                                  <div>
-                                    <h2 className="text-3xl font-black text-[#1A237E] tracking-tight">Architect's Itinerary</h2>
-                                    <p className="text-xs font-bold text-[#1A237E]/40 uppercase tracking-widest">Generated for {activeProfile.name}</p>
-                                    
-                                    {(roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.stops?.length ?? 0) > 0 && (
-                                      <div className="mt-4 space-y-3">
-                                        {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.safety_warning && (
-                                          <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-bold">
-                                            <ShieldAlert className="w-4 h-4 shrink-0" />
-                                            {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.safety_warning}
-                                          </div>
-                                        )}
-                                        <div className="flex flex-wrap gap-2">
+                              <div className="flex flex-col items-center gap-6 mb-8 text-center">
+                                <div className="p-4 rounded-3xl bg-indigo-50 shadow-inner">
+                                  <Sparkles className="w-8 h-8 text-[#1A237E]" />
+                                </div>
+                                <div>
+                                  <h2 className="text-3xl font-black text-[#1A237E] tracking-tight">Architect's Itinerary</h2>
+                                  <p className="text-xs font-bold text-[#1A237E]/40 uppercase tracking-widest">Generated for {activeProfile.name}</p>
+                                  
+                                  {(roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.stops?.length ?? 0) > 0 && (
+                                    <div className="mt-4 space-y-3 flex flex-col items-center">
+                                      {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.safety_warning && (
+                                        <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-200 rounded-2xl text-red-700 text-xs font-bold">
+                                          <ShieldAlert className="w-4 h-4 shrink-0" />
+                                          {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.safety_warning}
+                                        </div>
+                                      )}
+                                      <div className="flex flex-col w-full gap-2">
+                                        <a 
+                                          href={generateNavUrl(optimizeWaypoints([{stops: roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.stops || []}]), activeProfile.settings?.preferred_navigator || 'Google Maps', userLocation)}
+                                          target="_blank"
+                                          rel="noopener noreferrer"
+                                          onClick={() => setIsNavActive(true)}
+                                          className="flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-[#1A237E] text-white font-black text-sm hover:bg-[#1A237E]/90 transition-all active:scale-95 shadow-lg shadow-indigo-200 w-full"
+                                        >
+                                          {activeProfile.settings?.preferred_navigator === 'Apple Maps' ? <Navigation className="w-4 h-4" /> : 
+                                           activeProfile.settings?.preferred_navigator === 'Waze' ? <Activity className="w-4 h-4" /> :
+                                           <img src="https://www.google.com/images/branding/product/ico/maps15_24dp.ico" alt="" className="w-4 h-4" />}
+                                          Launch Day {selectedDay} Route
+                                        </a>
+                                        {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.is_split && roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.secondary_nav_link && (
                                           <a 
-                                            href={generateNavUrl(optimizeWaypoints([{stops: roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.stops || []}]), activeProfile.settings?.preferred_navigator || 'Google Maps', userLocation)}
+                                            href={roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.secondary_nav_link}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             onClick={() => setIsNavActive(true)}
-                                            className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#1A237E] text-white font-black text-sm hover:bg-[#1A237E]/90 transition-all active:scale-95 shadow-lg shadow-indigo-200"
+                                            className="flex items-center justify-center gap-2 px-6 py-4 rounded-2xl bg-slate-100 text-[#1A237E] font-black text-sm hover:bg-slate-200 transition-all active:scale-95 border border-slate-200 w-full"
                                           >
-                                            {activeProfile.settings?.preferred_navigator === 'Apple Maps' ? <Navigation className="w-4 h-4" /> : 
-                                             activeProfile.settings?.preferred_navigator === 'Waze' ? <Activity className="w-4 h-4" /> :
-                                             <img src="https://www.google.com/images/branding/product/ico/maps15_24dp.ico" alt="" className="w-4 h-4" />}
-                                            Launch Day {selectedDay} Route
+                                            Launch Part 2
                                           </a>
-                                          {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.is_split && roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.secondary_nav_link && (
-                                            <a 
-                                              href={roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.secondary_nav_link}
-                                              target="_blank"
-                                              rel="noopener noreferrer"
-                                              onClick={() => setIsNavActive(true)}
-                                              className="flex items-center gap-2 px-6 py-3 rounded-2xl bg-slate-100 text-[#1A237E] font-black text-sm hover:bg-slate-200 transition-all active:scale-95 border border-slate-200"
-                                            >
-                                              Launch Part 2
-                                            </a>
-                                          )}
-                                        </div>
-                                        {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.fallback_note && (
-                                          <p className="text-[10px] font-bold text-slate-400 italic">
-                                            {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.fallback_note}
-                                          </p>
                                         )}
                                       </div>
-                                    )}
-                                  </div>
+                                      {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.fallback_note && (
+                                        <p className="text-[10px] font-bold text-slate-400 italic">
+                                          {roadTrip.itinerary_daily.find(d => d.day === selectedDay)?.fallback_note}
+                                        </p>
+                                      )}
+                                    </div>
+                                  )}
                                 </div>
-                                <div className="flex items-center gap-2">
-                                  <div className="flex items-center gap-2 bg-white/50 p-1.5 rounded-2xl border border-white/20 overflow-x-auto max-w-full no-scrollbar">
+                                <div className="flex flex-col w-full gap-4">
+                                  <div className="flex items-center justify-center gap-2 bg-white/50 p-1.5 rounded-2xl border border-white/20 overflow-x-auto max-w-full no-scrollbar w-full">
                                     {roadTrip.itinerary_daily.map((day) => (
                                       <button 
                                         key={day.day}
                                         onClick={() => setSelectedDay(day.day)}
                                         className={cn(
-                                          "px-4 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap",
+                                          "px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex-1",
                                           selectedDay === day.day 
                                             ? "bg-[#1A237E] text-white shadow-lg" 
                                             : "text-[#1A237E]/60 hover:bg-white/50"
@@ -1166,23 +1210,25 @@ export default function App() {
                                       </button>
                                     ))}
                                   </div>
-                                  <button
-                                    onClick={() => {
-                                      setSaveTripName(`${activeProfile.name}'s ${roadTrip.ui_state.header_context.location_name} Adventure`);
-                                      setShowSaveModal(true);
-                                    }}
-                                    className="flex items-center gap-2 px-4 py-2 bg-[#1A237E]/10 text-[#1A237E] rounded-xl font-bold text-xs hover:bg-[#1A237E]/20 transition-all shrink-0"
-                                  >
-                                    <Bookmark className="w-4 h-4" />
-                                    Save
-                                  </button>
-                                  <button
-                                    onClick={handleShareRoute}
-                                    className="flex items-center gap-2 px-4 py-2 bg-[#1A237E]/10 text-[#1A237E] rounded-xl font-bold text-xs hover:bg-[#1A237E]/20 transition-all shrink-0"
-                                  >
-                                    <Share2 className="w-4 h-4" />
-                                    Share
-                                  </button>
+                                  <div className="flex items-center justify-center gap-2 w-full">
+                                    <button
+                                      onClick={() => {
+                                        setSaveTripName(`${activeProfile.name}'s ${roadTrip.ui_state.header_context.location_name} Adventure`);
+                                        setShowSaveModal(true);
+                                      }}
+                                      className="flex items-center justify-center gap-2 px-4 py-3 bg-[#1A237E]/10 text-[#1A237E] rounded-xl font-bold text-sm hover:bg-[#1A237E]/20 transition-all flex-1"
+                                    >
+                                      <Bookmark className="w-4 h-4" />
+                                      Save
+                                    </button>
+                                    <button
+                                      onClick={handleShareRoute}
+                                      className="flex items-center justify-center gap-2 px-4 py-3 bg-[#1A237E]/10 text-[#1A237E] rounded-xl font-bold text-sm hover:bg-[#1A237E]/20 transition-all flex-1"
+                                    >
+                                      <Share2 className="w-4 h-4" />
+                                      Share
+                                    </button>
+                                  </div>
                                 </div>
                               </div>
                               
@@ -1209,7 +1255,22 @@ export default function App() {
                                       <GripVertical className="w-5 h-5" />
                                     </div>
 
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                                    <article className="flex flex-col gap-6">
+                                      {/* Hero Image */}
+                                      <div className="w-full aspect-video rounded-3xl overflow-hidden shadow-lg border border-white/20 relative">
+                                        {stop.image_source === 'generic' && (
+                                          <div className="absolute top-0 right-0 bg-amber-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-2xl uppercase tracking-widest shadow-lg z-10">
+                                            Generic Image
+                                          </div>
+                                        )}
+                                        <SmartImage 
+                                          searchQuery={stop.name}
+                                          fallbackSeed={stop.name}
+                                          alt={stop.name} 
+                                          className="w-full h-full object-cover"
+                                        />
+                                      </div>
+
                                       <div className="space-y-4">
                                         <div className="flex items-center justify-between gap-3">
                                           <div className="flex items-center gap-3">
@@ -1234,49 +1295,55 @@ export default function App() {
                                             <Trash2 className="w-4 h-4" />
                                           </button>
                                         </div>
-                                        {stop.discovery_tag && (
-                                          <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
-                                            <Sparkles className="w-3 h-3" />
-                                            {stop.discovery_tag}
-                                          </div>
-                                        )}
                                         
-                                        {stop.live_data && (
-                                          <div className="flex flex-wrap gap-2">
-                                            <div className={cn(
-                                              "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
-                                              stop.live_data.status === 'Verified' ? "bg-emerald-100 text-emerald-800" :
-                                              stop.live_data.status === 'Warning' ? "bg-red-100 text-red-800" :
-                                              "bg-slate-100 text-slate-800"
-                                            )}>
-                                              <CheckCircle className="w-3 h-3" />
-                                              {stop.live_data.status}
+                                        {/* Metadata */}
+                                        <div className="flex flex-wrap gap-2">
+                                          {stop.discovery_tag && (
+                                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
+                                              <Sparkles className="w-3 h-3" />
+                                              {stop.discovery_tag}
                                             </div>
-
-                                            {stop.live_data.hours && (
-                                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-wider">
-                                                <Clock className="w-3 h-3" />
-                                                {stop.live_data.hours}
+                                          )}
+                                          
+                                          {stop.live_data && (
+                                            <>
+                                              <div className={cn(
+                                                "flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider",
+                                                stop.live_data.status === 'Verified' ? "bg-emerald-100 text-emerald-800" :
+                                                stop.live_data.status === 'Warning' ? "bg-red-100 text-red-800" :
+                                                "bg-slate-100 text-slate-800"
+                                              )}>
+                                                <CheckCircle className="w-3 h-3" />
+                                                {stop.live_data.status}
                                               </div>
-                                            )}
-                                            
-                                            {(stop.live_data.booking === 'Required' || stop.live_data.booking === 'Recommended') && (
-                                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
-                                                <AlertTriangle className="w-3 h-3" />
-                                                Booking {stop.live_data.booking}
-                                              </div>
-                                            )}
 
-                                            {stop.live_data.booking_priority === 'high' && (
-                                              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-100 text-red-800 text-[10px] font-black uppercase tracking-wider">
-                                                <Flame className="w-3 h-3" />
-                                                High Demand
-                                              </div>
-                                            )}
-                                          </div>
-                                        )}
+                                              {stop.live_data.hours && (
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 text-slate-800 text-[10px] font-black uppercase tracking-wider">
+                                                  <Clock className="w-3 h-3" />
+                                                  {stop.live_data.hours}
+                                                </div>
+                                              )}
+                                              
+                                              {(stop.live_data.booking === 'Required' || stop.live_data.booking === 'Recommended') && (
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-100 text-amber-800 text-[10px] font-black uppercase tracking-wider">
+                                                  <AlertTriangle className="w-3 h-3" />
+                                                  Booking {stop.live_data.booking}
+                                                </div>
+                                              )}
 
-                                        <p className="text-[#1A237E]/70 leading-relaxed font-medium">{stop.description}</p>
+                                              {stop.live_data.booking_priority === 'high' && (
+                                                <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-red-100 text-red-800 text-[10px] font-black uppercase tracking-wider">
+                                                  <Flame className="w-3 h-3" />
+                                                  High Demand
+                                                </div>
+                                              )}
+                                            </>
+                                          )}
+                                        </div>
+
+                                        {/* Description */}
+                                        <p className="text-[#1A237E]/70 leading-relaxed font-medium w-full">{stop.description}</p>
+                                        
                                         <div className="flex flex-wrap gap-3">
                                           <div className="flex items-center gap-2 text-xs font-bold text-indigo-600 bg-indigo-50 px-3 py-1.5 rounded-full">
                                             <MapPin className="w-3 h-3" />
@@ -1301,50 +1368,50 @@ export default function App() {
                                           )}
                                         </div>
                                       </div>
-                                      <div className="aspect-video rounded-3xl overflow-hidden shadow-lg border border-white/20 relative">
-                                        {stop.image_source === 'generic' && (
-                                          <div className="absolute top-0 right-0 bg-amber-500 text-white text-[10px] font-black px-3 py-1 rounded-bl-2xl uppercase tracking-widest shadow-lg z-10">
-                                            Generic Image
-                                          </div>
-                                        )}
-                                        <SmartImage 
-                                          searchQuery={stop.name}
-                                          fallbackSeed={stop.name}
-                                          alt={stop.name} 
-                                          className="w-full h-full object-cover"
-                                        />
-                                      </div>
-                                    </div>
+                                    </article>
                                   </motion.div>
                                 ))}
                               </div>
 
-                              {roadTrip.overnight_pitstop.length > 0 && (
+                              {(dynamicOvernightStays.length > 0 || isFetchingOvernightStays) && (
                                 <div className="mt-16 pt-12 border-t border-[#1A237E]/10">
-                                  <div className="flex items-center justify-between mb-8">
-                                    <h3 className="text-2xl font-black text-[#1A237E] tracking-tight">
-                                      🏁 Recommended Pitstops
-                                    </h3>
-                                    <div className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center gap-2 border border-indigo-100">
-                                      <Hotel className="w-4 h-4" />
-                                      Tailored for {activeProfile.vehicle.type}
+                                  <div className="flex flex-col mb-8">
+                                    <div className="flex items-center justify-between mb-2">
+                                      <h3 className="text-2xl font-black text-[#1A237E] tracking-tight">
+                                        🏁 Recommended Pitstops
+                                      </h3>
+                                      <div className="px-4 py-2 rounded-xl bg-indigo-50 text-indigo-700 text-xs font-bold flex items-center gap-2 border border-indigo-100">
+                                        <Hotel className="w-4 h-4" />
+                                        Tailored for {activeProfile.vehicle.type}
+                                      </div>
                                     </div>
+                                    {getEndOfDayLocation(selectedDay) && (
+                                      <p className="text-sm font-medium text-indigo-600/70">
+                                        Showing stays near {getEndOfDayLocation(selectedDay)?.name}
+                                      </p>
+                                    )}
                                   </div>
 
-                                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                    {/* Add Your Own Stop Card */}
-                                    <motion.div 
-                                      className="group relative overflow-hidden rounded-[2.5rem] bg-indigo-50 border-2 border-dashed border-indigo-200 hover:border-indigo-400 hover:bg-indigo-100 transition-all cursor-pointer flex flex-col items-center justify-center min-h-[300px] p-6 text-center"
-                                      onClick={() => setShowManualStopModal(true)}
-                                    >
-                                      <div className="w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform">
-                                        <Plus className="w-8 h-8" />
-                                      </div>
-                                      <h4 className="text-xl font-black text-indigo-900 mb-2">Add Your Own Stop</h4>
-                                      <p className="text-sm text-indigo-700/70 font-medium">Have a pre-booked hotel or specific location? Add it here and we'll recalculate the route around it.</p>
-                                    </motion.div>
+                                  {isFetchingOvernightStays ? (
+                                    <div className="flex flex-col items-center justify-center py-12">
+                                      <Loader2 className="w-8 h-8 text-indigo-600 animate-spin mb-4" />
+                                      <p className="text-sm font-bold text-indigo-900">Finding the best overnight stays...</p>
+                                    </div>
+                                  ) : (
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                      {/* Add Your Own Stop Card */}
+                                      <motion.div 
+                                        className="group relative overflow-hidden rounded-[2.5rem] bg-indigo-50 border-2 border-dashed border-indigo-200 hover:border-indigo-400 hover:bg-indigo-100 transition-all cursor-pointer flex flex-col items-center justify-center min-h-[300px] p-6 text-center"
+                                        onClick={() => setShowManualStopModal(true)}
+                                      >
+                                        <div className="w-16 h-16 bg-indigo-600 text-white rounded-full flex items-center justify-center mb-4 shadow-lg group-hover:scale-110 transition-transform">
+                                          <Plus className="w-8 h-8" />
+                                        </div>
+                                        <h4 className="text-xl font-black text-indigo-900 mb-2">Add Your Own Stop</h4>
+                                        <p className="text-sm text-indigo-700/70 font-medium">Have a pre-booked hotel or specific location? Add it here and we'll recalculate the route around it.</p>
+                                      </motion.div>
 
-                                    {roadTrip.overnight_pitstop.map((option, idx) => (
+                                      {dynamicOvernightStays.map((option, idx) => (
                                       <motion.div 
                                         key={idx}
                                         initial={{ opacity: 0, scale: 0.95 }}
@@ -1406,8 +1473,9 @@ export default function App() {
                                       </motion.div>
                                     ))}
                                   </div>
-                                </div>
-                              )}
+                                )}
+                              </div>
+                            )}
                             </div>
                           </div>
                         ) : (

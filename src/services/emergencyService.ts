@@ -92,22 +92,26 @@ const CATEGORY_QUERIES: Record<EmergencyCategory, string> = {
 
 export async function searchEmergencyServices(
   category: EmergencyCategory, 
-  userLocation: { lat: number; lng: number },
+  userLocation: { lat: number; lng: number } | string,
   region: Region
 ): Promise<EmergencyResponse> {
   const model = "gemini-3-flash-preview";
   const query = CATEGORY_QUERIES[category];
 
+  const locationString = typeof userLocation === 'string' 
+    ? `Location: ${userLocation}` 
+    : `Latitude ${userLocation.lat}, Longitude ${userLocation.lng}`;
+
   const prompt = `
     You are the "Emergency Support Agent" for Gemini Road Architect.
     The user is in an emergency situation and needs immediate help for the category: "${category}".
     
-    USER LOCATION: Latitude ${userLocation.lat}, Longitude ${userLocation.lng}.
+    USER LOCATION: ${locationString}.
     REGION: ${region}
     
     TASK:
     - Search for: "${query}"
-    - Proximity Rule: Prioritize results within a 10km (6-mile) radius of the user's current GPS coordinates.
+    - Proximity Rule: Prioritize results within a 10km (6-mile) radius of the user's location.
     - Return exactly the top 5 most relevant and open results.
     - SPECIALIST SERVICES: If the region is 'UK' or 'EU' and the location is mountainous (e.g., Highlands, Alps), ensure the description or results consider "Mountain Rescue" where relevant for emergency categories.
     

@@ -136,17 +136,17 @@ export const PlannerView: React.FC<PlannerViewProps> = ({
 
           {roadTrip && !isGenerating && (
             <div className="space-y-6">
-              {/* Horizontal Day Ribbon */}
-              <div className="flex gap-2 overflow-x-auto pb-4 no-scrollbar snap-x">
+              {/* Horizontal Day Ribbon - Frosted Glass Style */}
+              <div className="flex gap-3 overflow-x-auto pb-4 no-scrollbar snap-x flex-nowrap scrollbar-hide px-1">
                 {Array.from({ length: roadTrip.itinerary_daily.length }, (_, i) => (
                   <button
                     key={i}
                     onClick={() => setSelectedDay(i)}
                     className={cn(
-                      "flex-shrink-0 px-6 py-3 rounded-2xl font-black text-sm transition-all snap-start min-h-[44px]",
+                      "flex-shrink-0 px-8 py-4 rounded-[2rem] font-black text-sm transition-all snap-start min-h-[44px] border backdrop-blur-md",
                       currentDayIndex === i 
-                        ? "bg-white text-indigo-900 shadow-lg scale-105" 
-                        : "bg-white/10 text-white/60 hover:bg-white/20"
+                        ? "bg-white text-indigo-900 shadow-2xl scale-105 border-white" 
+                        : "bg-white/5 text-white/40 border-white/10 hover:bg-white/10 hover:text-white"
                     )}
                   >
                     Day {i + 1}

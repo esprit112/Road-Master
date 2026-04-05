@@ -149,7 +149,7 @@ export function MobileParametersDrawer({
                       Quick Start Template
                     </label>
                     <select 
-                      className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium appearance-none"
+                      className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium appearance-none min-h-[44px]"
                       value={inputs.preset || ""}
                       onChange={(e) => handlePresetSelection(e.target.value)}
                     >
@@ -177,7 +177,7 @@ export function MobileParametersDrawer({
                           type="button"
                           onClick={() => setInputs({...inputs, routeType: type})}
                           className={cn(
-                            "flex-1 py-3 text-[10px] font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2",
+                            "flex-1 py-3 text-[10px] font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2 min-h-[44px]",
                             inputs.routeType === type 
                               ? "bg-[#1A237E] text-white shadow-md" 
                               : "text-slate-400 hover:text-slate-600"
@@ -198,7 +198,7 @@ export function MobileParametersDrawer({
                       <input 
                         type="text" 
                         placeholder="Current Location"
-                        className="w-full rounded-2xl border border-slate-200 bg-white p-4 pl-12 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium"
+                        className="w-full rounded-2xl border border-slate-200 bg-white p-4 pl-12 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium min-h-[44px]"
                         value={inputs.startPoint}
                         onChange={(e) => setInputs({...inputs, startPoint: e.target.value})}
                       />
@@ -216,7 +216,7 @@ export function MobileParametersDrawer({
                         type="text" 
                         required
                         placeholder={inputs.routeType === 'Round Trip' ? "Furthest point?" : "Where to?"}
-                        className="w-full rounded-2xl border border-slate-200 bg-white p-4 pl-12 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium"
+                        className="w-full rounded-2xl border border-slate-200 bg-white p-4 pl-12 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium min-h-[44px]"
                         value={inputs.endPoint}
                         onChange={(e) => setInputs({...inputs, endPoint: e.target.value})}
                       />
@@ -262,7 +262,7 @@ export function MobileParametersDrawer({
                     <input 
                       type="number" 
                       min={1}
-                      className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium"
+                      className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium min-h-[44px]"
                       value={inputs.days}
                       onChange={(e) => setInputs({...inputs, days: parseInt(e.target.value) || 1})}
                     />
@@ -274,7 +274,7 @@ export function MobileParametersDrawer({
                     <textarea 
                       rows={2}
                       placeholder="Hiking, vintage shops, coffee..."
-                      className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium resize-none"
+                      className="w-full rounded-2xl border border-slate-200 bg-white p-4 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium resize-none min-h-[44px]"
                       value={inputs.interests}
                       onChange={(e) => setInputs({...inputs, interests: e.target.value})}
                     />
@@ -290,7 +290,7 @@ export function MobileParametersDrawer({
                           type="button"
                           onClick={() => setInputs({...inputs, serendipity: level})}
                           className={cn(
-                            "flex-1 py-3 text-[10px] font-bold rounded-xl transition-all active:scale-95",
+                            "flex-1 py-3 text-[10px] font-bold rounded-xl transition-all active:scale-95 min-h-[44px]",
                             inputs.serendipity === level 
                               ? "bg-[#1A237E] text-white shadow-md" 
                               : "text-slate-400 hover:text-slate-600"
@@ -305,7 +305,7 @@ export function MobileParametersDrawer({
                   {/* 6. The "Architect" Action */}
                   <button 
                     disabled={loading}
-                    className="w-full rounded-2xl bg-[#1A237E] py-5 text-lg font-black text-white shadow-xl shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50"
+                    className="w-full rounded-2xl bg-[#1A237E] py-5 text-lg font-black text-white shadow-xl shadow-indigo-200 transition-all active:scale-95 flex items-center justify-center gap-3 disabled:opacity-50 min-h-[44px]"
                   >
                     {loading ? (
                       <Loader2 className="w-6 h-6 animate-spin" />

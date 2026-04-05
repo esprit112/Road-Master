@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
-import { User, Car, Dog, Map, Sparkles, Check, Navigation, Smartphone, Monitor, Globe, Activity } from 'lucide-react';
+import { User, Car, Dog, Map, Sparkles, Check, Navigation, Smartphone, Monitor, Globe, Activity, Zap } from 'lucide-react';
 import { db } from '../db';
 import { Persona, VehicleType, VehicleProfile, UserProfile } from '../types';
 import { cn } from '../lib/utils';
@@ -112,11 +112,11 @@ export function CreateProfileScreen({ onCreated }: CreateProfileScreenProps) {
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4 overflow-y-auto">
       <motion.div 
         initial={{ opacity: 0, scale: 0.9, y: 20 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
-        className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden border border-white/20"
+        className="w-full max-w-2xl bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl overflow-hidden border border-white/20 my-auto"
       >
         <div className="p-8 md:p-12">
           <div className="flex items-center justify-between mb-8">
@@ -148,7 +148,7 @@ export function CreateProfileScreen({ onCreated }: CreateProfileScreenProps) {
                   <input 
                     type="text"
                     placeholder="e.g. Max Power"
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pl-12 pr-4 text-lg font-medium focus:ring-2 focus:ring-[var(--active)] transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-4 pl-12 pr-4 text-lg font-medium focus:ring-2 focus:ring-[var(--active)] transition-all min-h-[44px]"
                     value={profile.name}
                     onChange={(e) => setProfile({ ...profile, name: e.target.value })}
                   />
@@ -163,7 +163,7 @@ export function CreateProfileScreen({ onCreated }: CreateProfileScreenProps) {
                       key={p.id}
                       onClick={() => setProfile({ ...profile, persona: p.id })}
                       className={cn(
-                        "p-4 rounded-2xl border text-left transition-all hover:border-[var(--active)]/50",
+                        "p-4 rounded-2xl border text-left transition-all hover:border-[var(--active)]/50 min-h-[44px]",
                         profile.persona === p.id 
                           ? "bg-[var(--active)]/5 border-[var(--active)] ring-1 ring-[var(--active)]" 
                           : "bg-white dark:bg-slate-800/30 border-slate-100 dark:border-slate-700"
@@ -183,7 +183,7 @@ export function CreateProfileScreen({ onCreated }: CreateProfileScreenProps) {
                   <input 
                     type="number"
                     min={1}
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm"
+                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm min-h-[44px]"
                     value={profile.group_size?.adults}
                     onChange={(e) => setProfile({ ...profile, group_size: { ...profile.group_size!, adults: parseInt(e.target.value) || 1 } })}
                   />
@@ -193,7 +193,7 @@ export function CreateProfileScreen({ onCreated }: CreateProfileScreenProps) {
                   <input 
                     type="number"
                     min={0}
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm"
+                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm min-h-[44px]"
                     value={profile.group_size?.children}
                     onChange={(e) => setProfile({ ...profile, group_size: { ...profile.group_size!, children: parseInt(e.target.value) || 0 } })}
                   />
@@ -212,7 +212,7 @@ export function CreateProfileScreen({ onCreated }: CreateProfileScreenProps) {
                       key={v.id}
                       onClick={() => setProfile({ ...profile, vehicle: { ...profile.vehicle!, type: v.id } })}
                       className={cn(
-                        "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all",
+                        "flex flex-col items-center gap-2 p-4 rounded-2xl border transition-all min-h-[44px]",
                         profile.vehicle?.type === v.id 
                           ? "bg-[var(--active)] text-white border-[var(--active)] shadow-lg scale-105" 
                           : "bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-600"
@@ -229,7 +229,7 @@ export function CreateProfileScreen({ onCreated }: CreateProfileScreenProps) {
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Fuel Type</label>
                   <select 
-                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm"
+                    className="w-full bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 rounded-2xl py-3 px-4 text-sm min-h-[44px]"
                     value={profile.vehicle?.power}
                     onChange={(e) => setProfile({ ...profile, vehicle: { ...profile.vehicle!, power: e.target.value as VehicleProfile } })}
                   >
@@ -257,6 +257,27 @@ export function CreateProfileScreen({ onCreated }: CreateProfileScreenProps) {
                   </button>
                 </div>
               </div>
+
+              {profile.vehicle?.power === 'EV' && (
+                <motion.div 
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  className="space-y-2"
+                >
+                  <label className="text-xs font-bold uppercase tracking-widest text-slate-400">Max Battery Range (Miles)</label>
+                  <div className="relative">
+                    <Zap className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-500" />
+                    <input 
+                      type="number"
+                      placeholder="e.g. 250"
+                      className="w-full bg-indigo-50/50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-2xl py-4 pl-12 pr-4 text-lg font-bold text-indigo-600 focus:ring-2 focus:ring-indigo-500 transition-all min-h-[44px]"
+                      value={profile.preferences?.rangeThreshold}
+                      onChange={(e) => setProfile({ ...profile, preferences: { ...profile.preferences!, rangeThreshold: parseInt(e.target.value) || 0 } })}
+                    />
+                  </div>
+                  <p className="text-[10px] text-slate-500 italic px-2">We'll use this to optimize charging stops along your route.</p>
+                </motion.div>
+              )}
             </motion.div>
           )}
 

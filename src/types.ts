@@ -10,6 +10,7 @@ export type Persona =
   | 'Social Syndicate';
 export type RoadTolerance = 'Efficiency' | 'Adventure';
 export type Vibe = 'Stealth' | 'Social';
+export type RouteType = 'Point to Point' | 'Round Trip';
 
 export interface UserProfile {
   id?: number;
@@ -88,6 +89,7 @@ export interface TripInputs {
   endPoint: string;
   interests: string;
   serendipity: SerendipityLevel;
+  routeType: RouteType | null;
   preset?: string;
   user_added_pitstops?: UserAddedPitstop[];
   edit_actions?: EditAction[];

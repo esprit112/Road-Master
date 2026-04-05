@@ -75,7 +75,15 @@ export async function getRoadLawSummary(countryCode: string, countryName: string
     },
   }));
 
-  return JSON.parse(response.text || '{}') as RoadLawSummary;
+  const result = JSON.parse(response.text || '{}');
+  return {
+    countryName: result.countryName || countryName,
+    sideOfRoad: result.sideOfRoad || 'Unknown',
+    bacLimit: result.bacLimit || 'Unknown',
+    speedUnits: result.speedUnits || 'km/h',
+    requiredGear: Array.isArray(result.requiredGear) ? result.requiredGear : [],
+    quirkyLaws: Array.isArray(result.quirkyLaws) ? result.quirkyLaws : []
+  } as RoadLawSummary;
 }
 
 const CATEGORY_QUERIES: Record<EmergencyCategory, string> = {
@@ -159,6 +167,12 @@ export async function searchEmergencyServices(
     },
   }));
 
-  const result = JSON.parse(response.text || '{"results": []}');
-  return result;
+  try {
+    const result = JSON.parse(response.text || '{"results": []}');
+    return {
+      results: Array.isArray(result.results) ? result.results : []
+    };
+  } catch (e) {
+    return { results: [] };
+  }
 }

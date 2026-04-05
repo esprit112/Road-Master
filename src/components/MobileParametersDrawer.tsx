@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { ChevronUp, MapPin, Navigation, Compass, ArrowRight, Loader2, Search, Zap } from 'lucide-react';
-import { UserProfile, TripInputs, SerendipityLevel } from '../types';
+import { ChevronUp, MapPin, Navigation, Compass, ArrowRight, Loader2, Search, Zap, Repeat, ArrowRightCircle } from 'lucide-react';
+import { UserProfile, TripInputs, SerendipityLevel, RouteType } from '../types';
 import { cn } from '../lib/utils';
 import { getLocationSuggestions, UK_PRESETS } from '../services/geminiService';
 import { PersonaLoader } from './PersonaLoader';
@@ -167,7 +167,30 @@ export function MobileParametersDrawer({
                     )}
                   </div>
 
-                  {/* 1. Start Point */}
+                  {/* 1. Route Type Selector */}
+                  <div className="space-y-2">
+                    <label className="text-xs font-black uppercase text-[#1A237E]">Route Type</label>
+                    <div className="flex bg-slate-100 p-1 rounded-2xl shadow-inner">
+                      {(['Point to Point', 'Round Trip'] as RouteType[]).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setInputs({...inputs, routeType: type})}
+                          className={cn(
+                            "flex-1 py-3 text-[10px] font-bold rounded-xl transition-all active:scale-95 flex items-center justify-center gap-2",
+                            inputs.routeType === type 
+                              ? "bg-[#1A237E] text-white shadow-md" 
+                              : "text-slate-400 hover:text-slate-600"
+                          )}
+                        >
+                          {type === 'Point to Point' ? <ArrowRightCircle size={14} /> : <Repeat size={14} />}
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* 2. Start Point */}
                   <div className="space-y-2">
                     <label className="text-xs font-black uppercase text-[#1A237E]">Start Point</label>
                     <div className="relative">
@@ -182,15 +205,17 @@ export function MobileParametersDrawer({
                     </div>
                   </div>
 
-                  {/* 2. Destination */}
+                  {/* 3. Destination */}
                   <div className="space-y-2 relative">
-                    <label className="text-xs font-black uppercase text-[#1A237E]">Destination</label>
+                    <label className="text-xs font-black uppercase text-[#1A237E]">
+                      {inputs.routeType === 'Round Trip' ? 'Turnaround Destination' : 'Destination'}
+                    </label>
                     <div className="relative">
                       <Navigation className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={18} />
                       <input 
                         type="text" 
                         required
-                        placeholder="Where to?"
+                        placeholder={inputs.routeType === 'Round Trip' ? "Furthest point?" : "Where to?"}
                         className="w-full rounded-2xl border border-slate-200 bg-white p-4 pl-12 text-[#1A237E] shadow-sm focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 outline-none font-medium"
                         value={inputs.endPoint}
                         onChange={(e) => setInputs({...inputs, endPoint: e.target.value})}

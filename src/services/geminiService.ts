@@ -17,9 +17,13 @@ export const UK_PRESETS: Record<string, { name: string; start: string; end: stri
   peak: { name: "Peak District (England)", start: "Derby", end: "Sheffield", description: "Friendly A-roads. High heritage value." },
 };
 
-export async function generateRoadTrip(inputs: TripInputs, profile?: UserProfile): Promise<RoadTripResponse> {
+export async function generateRoadTrip(inputs: TripInputs, profile?: UserProfile, userLocation?: { lat: number; lng: number } | null): Promise<RoadTripResponse> {
   const model = "gemini-3-flash-preview";
   
+  const locationContext = userLocation 
+    ? `USER CURRENT LOCATION: Latitude ${userLocation.lat}, Longitude ${userLocation.lng}`
+    : "USER CURRENT LOCATION: Unknown (Use 'Start Point' as provided)";
+
   const profileContext = profile 
     ? `
     ACTIVE PROFILE CONTEXT:
@@ -102,11 +106,13 @@ export async function generateRoadTrip(inputs: TripInputs, profile?: UserProfile
     You are the "ROUTE MASTER ARCHITECT V2026.9 (MASTER SYNTHESIS)," a high-intelligence travel agent and logistics expert. 
     Design a hyper-personalized, safe, and efficient road trip based on these inputs:
     
+    ${locationContext}
     - Number of Days: ${inputs.days}
-    - Start Point: ${inputs.startPoint}
+    - Start Point: ${inputs.startPoint || 'Current Location'}
     - End Point: ${inputs.endPoint}
     - Interests: ${inputs.interests}
     - Serendipity Level: ${inputs.serendipity}
+    - Route Type: ${inputs.routeType}
     
     ${profileContext}
     ${presetContext}
@@ -114,6 +120,18 @@ export async function generateRoadTrip(inputs: TripInputs, profile?: UserProfile
     ${editActionsContext}
 
     1. INITIALIZATION & PERSONALIZATION (PHASE 1)
+    - Route Type Logic:
+        - If routeType is "Round Trip":
+            - The "End Point" provided is the "Apex" (the furthest point of the trip).
+            - The Final Destination of the entire itinerary MUST be the "Start Point" (${inputs.startPoint || 'Current Location'}).
+            - Generate a loop. The return leg MUST follow a geographically different path than the outbound leg.
+            - Overnight stops for the return days MUST be located in different towns/areas than the outbound days to ensure a fresh experience.
+            - Day Distribution for Round Trip:
+                - For a 3-day trip: Day 1 & 2 move toward the Apex; Day 3 returns to the Start.
+                - For a 5-day trip: Day 1, 2 & 3 move toward the Apex; Day 4 & 5 return to the Start.
+                - Scale this logic proportionally for other durations (approx 60-70% outbound, 30-40% return).
+        - If routeType is "Point to Point":
+            - The "End Point" is the final destination.
     - Persona Greeting: Use the activeProfile.persona and activeProfile.name to generate a "Persona-Specific Welcome Message" (e.g., "Ready for a family adventure, [Name]?"). Put this in ui_state.header_context.title.
     - Tone Control: 
         - Solo Nomad: Inspirational/Introspective.
@@ -161,15 +179,16 @@ export async function generateRoadTrip(inputs: TripInputs, profile?: UserProfile
     - UI FEEDBACK HINTS: In the \`ui_state\` object, include a \`verification_summary\` string to be displayed as a toast notification (e.g., "I've checked the NC500 stops; note that Applecross Inn requires dinner bookings 2 weeks in advance!").
 
     IMAGE SOURCE LOGIC (V2026.6):
-    - For each stop and pitstop, you MUST attempt to find an actual image from the stop's official website.
-    - If you find an image from the website:
+    - GEOGRAPHIC RELEVANCE: All images MUST be geographically accurate to the specific county/country of the stop.
+    - SOURCE RESTRICTION: You MUST only provide a \`photo_uri\` if it is from the stop's official website. 
+    - If you find an image from the official website:
       - Set image_source to "website".
       - Provide the official website URL in website_url (for stops) or website (for pitstops).
-    - If NO specific image is available from the website:
-      - Use a generic, high-quality placeholder image (e.g., from Unsplash or Picsum).
+    - If NO official website image is available:
+      - Set \`photo_uri\` to an empty string.
       - Set image_source to "generic".
-    - If the image is a generic search result (not from the official site):
-      - Set image_source to "generic".
+      - The system will automatically attempt to fetch a geographically accurate image from Wikipedia.
+    - DO NOT use generic placeholder services like Picsum or Unsplash in the \`photo_uri\`.
 
     Use Google Search to find current data, photos, and phone numbers.
 
@@ -351,7 +370,12 @@ export async function generateRoadTrip(inputs: TripInputs, profile?: UserProfile
     },
   }));
 
-  const result = JSON.parse(response.text || "{}");
+  const text = response.candidates?.[0]?.content?.parts
+    ?.filter(part => part.text)
+    .map(part => part.text)
+    .join("") || "{}";
+
+  const result = JSON.parse(text);
   return {
     itinerary_daily: result.itinerary_daily || [],
     overnight_pitstop: result.overnight_pitstop || [],
@@ -407,7 +431,11 @@ export async function calculateDirectDistance(start: string, end: string, days: 
     },
   }));
 
-  const text = response.text?.trim() || "Unknown distance";
+  const text = response.candidates?.[0]?.content?.parts
+    ?.filter(part => part.text)
+    .map(part => part.text)
+    .join("") || "Unknown distance";
+
   return text.replace(/\*\*/g, '').trim();
 }
 
@@ -483,7 +511,11 @@ export async function fetchDynamicOvernightStays(
   }));
 
   try {
-    const result = JSON.parse(response.text || '{"overnight_pitstop": []}');
+    const text = response.candidates?.[0]?.content?.parts
+      ?.filter(part => part.text)
+      .map(part => part.text)
+      .join("") || '{"overnight_pitstop": []}';
+    const result = JSON.parse(text);
     return result.overnight_pitstop || [];
   } catch (e) {
     console.error("Failed to parse overnight stays", e);

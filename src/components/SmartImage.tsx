@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { cn } from '../lib/utils';
 
 // Simple in-memory cache to avoid duplicate requests during the same session
 const memoryCache = new Map<string, string>();
@@ -90,12 +91,9 @@ export const SmartImage = ({ searchQuery, fallbackSeed, overrideSrc, className, 
         clearTimeout(timeoutId);
       }
       
-      // Fallback to picsum if Wikipedia fails, times out, or has no image
-      const fallback = `https://picsum.photos/seed/${encodeURIComponent(fallbackSeed || searchQuery)}/1920/1080`;
+      // Fallback to a neutral state if Wikipedia fails, times out, or has no image
       if (isMounted) {
-        memoryCache.set(searchQuery, fallback);
-        try { sessionStorage.setItem(`wiki_img_${searchQuery}`, fallback); } catch(e) {}
-        setSrc(fallback);
+        setSrc('');
         setLoading(false);
       }
     };
@@ -109,6 +107,23 @@ export const SmartImage = ({ searchQuery, fallbackSeed, overrideSrc, className, 
 
   if (loading && !src) {
     return <div className={`animate-pulse bg-slate-800/50 ${className}`} />;
+  }
+
+  if (!loading && !src) {
+    return (
+      <div className={cn("flex flex-col items-center justify-center bg-slate-100 text-slate-400 gap-2", className)}>
+        <div className="p-4 rounded-full bg-slate-200/50">
+          <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7" />
+            <line x1="16" y1="5" x2="22" y2="5" />
+            <line x1="19" y1="2" x2="19" y2="8" />
+            <circle cx="9" cy="9" r="2" />
+            <path d="m21 15-3.086-3.086a2 2 0 0 0-2.828 0L6 21" />
+          </svg>
+        </div>
+        <span className="text-[10px] font-black uppercase tracking-widest opacity-50">No Image Found</span>
+      </div>
+    );
   }
 
   return (
